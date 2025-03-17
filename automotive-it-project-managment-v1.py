@@ -18,7 +18,7 @@ tasks = [
 ]
 tasks_df = pd.DataFrame(tasks)
 
-# Placeholder for user-defined template entries
+# Initialize session state for template data
 if "template_data" not in st.session_state:
     st.session_state.template_data = pd.DataFrame()
 
@@ -79,16 +79,16 @@ elif page == "Project Management Template":
     # User selects which component to use as a template
     template_type = st.selectbox("Select a Template Type", ["Task Management", "Punch List", "Checklist"])
 
-    if template_type == "Task Management":
-        template_columns = ["Task", "Priority", "Status", "Owner", "Due Date"]
-    elif template_type == "Punch List":
-        template_columns = ["Task", "Status", "Owner"]
-    elif template_type == "Checklist":
-        template_columns = ["Checklist Item", "Completed"]
+    # Define template columns
+    template_columns = {
+        "Task Management": ["Task", "Priority", "Status", "Owner", "Due Date"],
+        "Punch List": ["Task", "Status", "Owner"],
+        "Checklist": ["Checklist Item", "Completed"]
+    }
 
-    # Store the template
-    if st.session_state.template_data.empty:
-        st.session_state.template_data = pd.DataFrame(columns=template_columns)
+    # Ensure session state has the correct columns
+    if st.session_state.template_data.empty or list(st.session_state.template_data.columns) != template_columns[template_type]:
+        st.session_state.template_data = pd.DataFrame(columns=template_columns[template_type])
 
     # User inputs for adding to template
     st.subheader("➕ Add New Entry")
@@ -97,20 +97,28 @@ elif page == "Project Management Template":
     new_owner = st.text_input("Assigned To")
 
     if st.button("Add to Template"):
-        new_entry = {"Task": new_task, "Status": new_status, "Owner": new_owner}
-        if template_type == "Checklist":
-            new_entry = {"Checklist Item": new_task, "Completed": False}
-        elif template_type == "Task Management":
-            new_entry["Priority"] = "Medium"
-            new_entry["Due Date"] = "TBD"
+        if new_task.strip() == "":
+            st.warning("Task Name cannot be empty!")
+        else:
+            # Create a new entry
+            new_entry = {"Task": new_task, "Status": new_status, "Owner": new_owner}
+            if template_type == "Checklist":
+                new_entry = {"Checklist Item": new_task, "Completed": False}
+            elif template_type == "Task Management":
+                new_entry["Priority"] = "Medium"
+                new_entry["Due Date"] = "TBD"
 
-        st.session_state.template_data = st.session_state.template_data.append(new_entry, ignore_index=True)
-        st.success("Entry added to template!")
+            # **Fixed: Use `pd.concat()` instead of `append()`**
+            new_df = pd.DataFrame([new_entry])  # Convert to DataFrame
+            st.session_state.template_data = pd.concat([st.session_state.template_data, new_df], ignore_index=True)
+
+            st.success("Entry added to template!")
 
     # Display updated template
     st.subheader("🔹 Generated Template")
-    st.dataframe(st.session_state.template_data)
+    st.dataframe(st.session_state.template_data, use_container_width=True)
 
     # Download updated template as CSV
-    csv = st.session_state.template_data.to_csv(index=False).encode('utf-8')
-    st.download_button(label="📥 Download Template", data=csv, file_name="project_template.csv", mime="text/csv")
+    if not st.session_state.template_data.empty:
+        csv = st.session_state.template_data.to_csv(index=False).encode('utf-8')
+        st.download_button(label="📥 Download Template", data=csv, file_name="project_template.csv", mime="text/csv")
