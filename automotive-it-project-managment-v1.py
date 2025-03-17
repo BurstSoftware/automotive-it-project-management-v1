@@ -18,6 +18,10 @@ tasks = [
 ]
 tasks_df = pd.DataFrame(tasks)
 
+# Placeholder for user-defined template entries
+if "template_data" not in st.session_state:
+    st.session_state.template_data = pd.DataFrame()
+
 # Dashboard Page
 if page == "Dashboard":
     st.title("📊 IT Project Management Dashboard")
@@ -26,14 +30,6 @@ if page == "Dashboard":
     # Display task table
     st.subheader("📌 Current Tasks")
     st.dataframe(tasks_df, use_container_width=True)
-
-    # IT Budget Overview
-    st.subheader("💰 IT Budget & Procurement")
-    budget_data = pd.DataFrame([
-        {"Item": "Laptops", "Category": "Hardware", "Cost": "$5,000", "Approval Status": "Approved", "Next Purchase": "09/01/2025"},
-        {"Item": "SQL Server License", "Category": "Software", "Cost": "$2,500", "Approval Status": "Pending", "Next Purchase": "04/15/2025"}
-    ])
-    st.dataframe(budget_data)
 
 # Punch List Page
 elif page == "Punch List":
@@ -44,7 +40,7 @@ elif page == "Punch List":
     task = st.text_input("Task Name")
     status = st.selectbox("Status", ["Pending", "In Progress", "Completed"])
     owner = st.text_input("Assigned To")
-    
+
     if st.button("Add Task"):
         new_task = {"Task": task, "Status": status, "Owner": owner}
         tasks.append(new_task)
@@ -84,16 +80,37 @@ elif page == "Project Management Template":
     template_type = st.selectbox("Select a Template Type", ["Task Management", "Punch List", "Checklist"])
 
     if template_type == "Task Management":
-        template_df = pd.DataFrame(columns=["Task", "Priority", "Status", "Owner", "Due Date"])
+        template_columns = ["Task", "Priority", "Status", "Owner", "Due Date"]
     elif template_type == "Punch List":
-        template_df = pd.DataFrame(columns=["Task", "Status", "Owner"])
+        template_columns = ["Task", "Status", "Owner"]
     elif template_type == "Checklist":
-        template_df = pd.DataFrame(columns=["Checklist Item", "Completed"])
+        template_columns = ["Checklist Item", "Completed"]
 
-    # Display blank template
+    # Store the template
+    if st.session_state.template_data.empty:
+        st.session_state.template_data = pd.DataFrame(columns=template_columns)
+
+    # User inputs for adding to template
+    st.subheader("➕ Add New Entry")
+    new_task = st.text_input("Task Name / Checklist Item")
+    new_status = st.selectbox("Status", ["Pending", "In Progress", "Completed"])
+    new_owner = st.text_input("Assigned To")
+
+    if st.button("Add to Template"):
+        new_entry = {"Task": new_task, "Status": new_status, "Owner": new_owner}
+        if template_type == "Checklist":
+            new_entry = {"Checklist Item": new_task, "Completed": False}
+        elif template_type == "Task Management":
+            new_entry["Priority"] = "Medium"
+            new_entry["Due Date"] = "TBD"
+
+        st.session_state.template_data = st.session_state.template_data.append(new_entry, ignore_index=True)
+        st.success("Entry added to template!")
+
+    # Display updated template
     st.subheader("🔹 Generated Template")
-    st.dataframe(template_df)
+    st.dataframe(st.session_state.template_data)
 
-    # Download template as CSV
-    csv = template_df.to_csv(index=False).encode('utf-8')
+    # Download updated template as CSV
+    csv = st.session_state.template_data.to_csv(index=False).encode('utf-8')
     st.download_button(label="📥 Download Template", data=csv, file_name="project_template.csv", mime="text/csv")
